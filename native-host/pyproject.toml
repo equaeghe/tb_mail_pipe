@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tb-mail-pipe-host"
+version = "0.1.0"
+description = "Native messaging host for the Thunderbird Mail Pipe addon"
+requires-python = ">=3.8"
+license = "GPL-3.0-only"
+
+[project.scripts]
+tb-mail-pipe-host = "tb_mail_pipe_host:main"
+
+[tool.hatch.build.targets.wheel]
+include = ["tb_mail_pipe_host.py"]
