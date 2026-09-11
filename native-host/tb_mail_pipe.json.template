@@ -1,0 +1,7 @@
+{
+  "name": "tb_mail_pipe",
+  "description": "Native messaging host for the ‘Thunderbird Mail Pipe’ Thunderbird addon",
+  "path": "@HOST_SCRIPT_PATH@",
+  "type": "stdio",
+  "allowed_extensions": ["tb_mail_pipe@localhost"]
+}
