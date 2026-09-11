@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Manual installer for the Thunderbird Mail Pipe native messaging host.
 # Use this for quick testing outside of NixOS. On NixOS, prefer the module
-# in ../nix/ instead, which manages this declaratively.
+# in your private Nix overlay/home-manager config instead, which manages this declaratively.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
