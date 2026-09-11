@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "Thunderbird Mail Pipe",
+  "version": "1.0.0",
+  "description": "KMail-style manual filters for Thunderbird: run selected messages through external scripts via a context menu or keyboard shortcut, and import the script's output as a new message.",
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tb_mail_pipe@localhost",
+      "strict_min_version": "128.0"
+    }
+  },
+
+  "permissions": [
+    "accountsRead",
+    "messagesRead",
+    "messagesMove",
+    "messagesDelete",
+    "messagesImport",
+    "messagesUpdate",
+    "nativeMessaging",
+    "menus",
+    "storage",
+    "notifications"
+  ],
+
+  "background": {
+    "scripts": ["background.js"]
+  },
+
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+
+  "commands": {
+    "run-action-1": { "description": "Mail Pipe: run action bound to slot 1" },
+    "run-action-2": { "description": "Mail Pipe: run action bound to slot 2" },
+    "run-action-3": { "description": "Mail Pipe: run action bound to slot 3" },
+    "run-action-4": { "description": "Mail Pipe: run action bound to slot 4" },
+    "run-action-5": { "description": "Mail Pipe: run action bound to slot 5" },
+    "run-action-6": { "description": "Mail Pipe: run action bound to slot 6" },
+    "run-action-7": { "description": "Mail Pipe: run action bound to slot 7" },
+    "run-action-8": { "description": "Mail Pipe: run action bound to slot 8" },
+    "run-action-9": { "description": "Mail Pipe: run action bound to slot 9" }
+  }
+}
