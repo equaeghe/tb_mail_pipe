@@ -15,7 +15,7 @@
  *       ],
  *       timeoutMs: 30000,                        // total budget for the whole chain
  *       importTarget: "same" | "custom",
- *       customFolder: { accountId, path } | null,
+ *       customFolderId: "<MailFolderId string>" | null,
  *       carryFlags: true,                       // copy read/flagged state onto the new message
  *       originalAction: "trash" | "delete" | "markRead" | "leave"
  *     }, ...
@@ -221,9 +221,9 @@ async function runActionOnOneMessage(action, message) {
   });
 
   const destFolder =
-    action.importTarget === "custom" && action.customFolder
-      ? action.customFolder
-      : message.folder;
+    action.importTarget === "custom" && action.customFolderId
+      ? action.customFolderId
+      : resolveFolderId(message);
 
   const properties = {};
   if (action.carryFlags) {
@@ -247,6 +247,29 @@ async function runActionOnOneMessage(action, message) {
     default:
       break;
   }
+}
+
+// resolveFolderId: Thunderbird MV3's MailFolderId is an opaque string (a
+// full MailFolder object, or the old {accountId, path} shape, is no longer
+// accepted by messages.import). Message objects are documented to carry
+// either a `folderId` string directly, or a `folder` MailFolder object
+// whose `.id` is that string - this checks both, and logs the actual shape
+// on failure so a mismatch can be diagnosed from the background console
+// (Add-ons Manager -> gear -> Debug Add-ons -> Inspect -> Console) instead
+// of guessed at blind.
+function resolveFolderId(message) {
+  if (typeof message.folderId === "string") return message.folderId;
+  if (message.folder) {
+    if (typeof message.folder === "string") return message.folder;
+    if (typeof message.folder.id === "string") return message.folder.id;
+  }
+  console.error(
+    "Thunderbird Mail Pipe: could not resolve a folder id from message object:",
+    message,
+  );
+  throw new Error(
+    "Could not determine a MailFolderId for this message - see the background console for the actual message object shape.",
+  );
 }
 
 async function notify(title, message) {
