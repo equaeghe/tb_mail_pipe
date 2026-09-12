@@ -87,7 +87,21 @@ button {
   padding: 0.25rem;
   font-size: 0.85rem;
 }
-.step-row .step-command { flex: 2; min-width: 0; }
+.step-row .step-command-wrap {
+  flex: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.step-row .step-command-wrap select,
+.step-row .step-command-wrap input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+.step-row .step-command-custom.hidden {
+  display: none;
+}
 .step-row .step-argv { flex: 1; min-width: 0; }
 .step-row .step-buttons {
   display: flex;
@@ -99,7 +113,12 @@ button {
   padding: 0.15rem 0.4rem;
   font-size: 0.85rem;
 }
-#add-step { align-self: flex-start; }
+.steps-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-self: flex-start;
+}
+.steps-toolbar button { margin-top: 0; }
 .row-actions button {
   margin-top: 0;
   margin-right: 0.25rem;
