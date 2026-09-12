@@ -255,6 +255,7 @@ async function runActionOnOneMessage(action, message, scratchFolderId) {
   if (action.carryFlags) {
     properties.read = message.read;
     properties.flagged = message.flagged;
+    properties.tags = message.tags || [];
   }
 
   // messenger.messages.import() throws "Destination folder already
@@ -283,6 +284,12 @@ async function runActionOnOneMessage(action, message, scratchFolderId) {
     scratchFolderId,
     properties,
   );
+
+  if (action.carryFlags && message.junk) {
+    // messages.import()'s properties don't support "junk" (only
+    // update() does), so it has to be set as a separate step.
+    await messenger.messages.update(imported.id, { junk: true });
+  }
 
   if (destFolder !== scratchFolderId) {
     await messenger.messages.move([imported.id], destFolder);

@@ -30,6 +30,20 @@ step in the middle of the chain exits non-zero, the chain stops there and
 those fields refer to the failing step instead (with "stderr" prefixed by
 which step failed).
 
+Also supported - lets the options page populate a script picker instead of
+requiring the user to type/paste allow-listed paths by hand:
+    request:  {"action": "list_scripts"}
+    response: {"ok": true, "scripts": [{"name": "...", "path": "/abs/..."}, ...]}
+
+The allow-list file (see ALLOWLIST_PATH below) may be either the classic
+JSON list of absolute paths:
+    ["/abs/path/to/script1", "/abs/path/to/script2"]
+or a JSON object mapping a human-readable name to an absolute path:
+    {"mailfilters:html2alternative": "/nix/store/.../bin/html2alternative"}
+For list-form entries, "name" in the list_scripts response falls back to
+the script's basename (the run request itself is unaffected either way -
+it always takes the literal resolved path as "command").
+
 Security note: every step's command must be listed, by absolute path, in
 the allow-list file (see ALLOWLIST_PATH below), and ALL steps are
 validated before ANY of them run - so a bug or compromise in the
@@ -89,18 +103,40 @@ def send_message(obj) -> None:
     sys.stdout.buffer.flush()
 
 
-def load_allowlist():
+def load_allowlist_entries():
+    """Reads the allow-list file and returns a list of (name, resolved_path)
+    tuples. `name` is None for classic list-form entries (the caller should
+    fall back to the basename), or the dict key for name -> path entries.
+    Never raises; logs and returns [] on any problem."""
     if not ALLOWLIST_PATH.exists():
         return []
     try:
         with ALLOWLIST_PATH.open("r", encoding="utf-8") as f:
-            entries = json.load(f)
-        if not isinstance(entries, list):
-            return []
-        return [str(Path(e).resolve()) for e in entries]
+            data = json.load(f)
     except Exception as e:
         log(f"Failed to read allowlist {ALLOWLIST_PATH}: {e}")
         return []
+
+    entries = []
+    if isinstance(data, dict):
+        for name, path in data.items():
+            try:
+                entries.append((str(name), str(Path(path).resolve())))
+            except Exception as e:
+                log(f"Allowlist entry {name!r} -> {path!r} ignored: {e}")
+    elif isinstance(data, list):
+        for path in data:
+            try:
+                entries.append((None, str(Path(path).resolve())))
+            except Exception as e:
+                log(f"Allowlist entry {path!r} ignored: {e}")
+    else:
+        log(f"Allowlist {ALLOWLIST_PATH} must contain a JSON list or object, got {type(data).__name__}.")
+    return entries
+
+
+def load_allowlist_paths():
+    return {path for _name, path in load_allowlist_entries()}
 
 
 def validate_steps(steps):
@@ -109,7 +145,7 @@ def validate_steps(steps):
     if not isinstance(steps, list) or len(steps) == 0:
         return None, "'steps' must be a non-empty list."
 
-    allowlist = load_allowlist()
+    allowlist = load_allowlist_paths()
     resolved = []
     for i, step in enumerate(steps):
         command = step.get("command") if isinstance(step, dict) else None
@@ -190,6 +226,15 @@ def handle_run(req):
     }
 
 
+def handle_list_scripts():
+    scripts = [
+        {"name": name if name else os.path.basename(path), "path": path}
+        for name, path in load_allowlist_entries()
+    ]
+    scripts.sort(key=lambda s: s["name"].lower())
+    return {"ok": True, "scripts": scripts}
+
+
 def main():
     try:
         message = read_message()
@@ -205,6 +250,8 @@ def main():
         action = message.get("action")
         if action == "run":
             response = handle_run(message)
+        elif action == "list_scripts":
+            response = handle_list_scripts()
         else:
             response = {"ok": False, "error": f"Unknown action '{action}'."}
     except Exception as e:

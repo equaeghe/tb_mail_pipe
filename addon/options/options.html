@@ -87,10 +87,17 @@
             <div class="steps-section">
                 <span class="steps-label"
                     >Pipe chain (each step's output feeds the next step's
-                    input)</span
+                    input). Scripts are sourced from the native host's
+                    allow-list; pick "Custom path…" for one that isn't
+                    listed there (yet).</span
                 >
                 <div id="steps-list"></div>
-                <button id="add-step" type="button">+ Add step</button>
+                <div class="steps-toolbar">
+                    <button id="add-step" type="button">+ Add step</button>
+                    <button id="refresh-scripts" type="button">
+                        ↻ Refresh script list
+                    </button>
+                </div>
             </div>
 
             <label
@@ -117,8 +124,9 @@
             </div>
 
             <label
-                ><input id="f-carry-flags" type="checkbox" checked /> Carry over
-                read/flagged state to the new message</label
+                ><input id="f-carry-flags" type="checkbox" checked /> Carry
+                over read/flagged state, tags (labels) and junk status to
+                the new message</label
             >
 
             <label

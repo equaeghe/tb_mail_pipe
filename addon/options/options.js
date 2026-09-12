@@ -10,6 +10,36 @@ const SLOTS = [
   "run-action-9",
 ];
 
+const NATIVE_HOST_NAME = "tb_mail_pipe";
+
+// [{name, path}], populated from the native host's allow-list so step
+// commands can be picked from a dropdown instead of typed/pasted by hand.
+let allowedScripts = [];
+
+async function refreshAllowedScripts() {
+  try {
+    const response = await messenger.runtime.sendNativeMessage(
+      NATIVE_HOST_NAME,
+      { action: "list_scripts" },
+    );
+    if (response && response.ok && Array.isArray(response.scripts)) {
+      allowedScripts = response.scripts;
+    } else {
+      allowedScripts = [];
+      console.warn(
+        "Thunderbird Mail Pipe: could not load the allow-list:",
+        response && response.error,
+      );
+    }
+  } catch (err) {
+    allowedScripts = [];
+    console.warn(
+      "Thunderbird Mail Pipe: native host unreachable while loading the allow-list:",
+      err,
+    );
+  }
+}
+
 let config = {
   scratchFolderId: null,
   scratchFolderAccountId: null,
@@ -193,6 +223,28 @@ function escapeHtml(s) {
 
 // ---------- step-list editing ----------
 
+// Builds the <option> list for one step's command select, given its
+// currently stored command (a resolved absolute path, or ""). Returns the
+// HTML string plus whether that command matched a known allow-listed
+// script (if not, the row should fall back to showing the custom-path
+// text input so the value isn't silently lost or hidden).
+function commandOptionsHtml(selectedCommand) {
+  const opts = ['<option value="">Select a script…</option>'];
+  let matched = false;
+  for (const s of allowedScripts) {
+    const isSelected = s.path === selectedCommand;
+    if (isSelected) matched = true;
+    opts.push(
+      `<option value="${escapeHtml(s.path)}" title="${escapeHtml(s.path)}"${isSelected ? " selected" : ""}>${escapeHtml(s.name)}</option>`,
+    );
+  }
+  const customSelected = selectedCommand && !matched;
+  opts.push(
+    `<option value="__custom__"${customSelected ? " selected" : ""}>Custom path…</option>`,
+  );
+  return { html: opts.join(""), matched };
+}
+
 function renderSteps() {
   const list = document.getElementById("steps-list");
   list.innerHTML = "";
@@ -200,9 +252,21 @@ function renderSteps() {
   editingSteps.forEach((step, i) => {
     const row = document.createElement("div");
     row.className = "step-row";
+
+    const { html: optionsHtml, matched } = commandOptionsHtml(step.command);
+    const showCustom = !!step.command && !matched;
+
     row.innerHTML = `
       <span class="step-index">${i + 1}.</span>
-      <input type="text" class="step-command" placeholder="/absolute/path/to/script" value="${escapeHtml(step.command)}" />
+      <div class="step-command-wrap">
+        <select class="step-command"></select>
+        <input
+          type="text"
+          class="step-command-custom${showCustom ? "" : " hidden"}"
+          placeholder="/absolute/path/to/script"
+          value="${escapeHtml(step.command || "")}"
+        />
+      </div>
       <input type="text" class="step-argv" placeholder="extra args (space separated)" value="${escapeHtml((step.argv || []).join(" "))}" />
       <span class="step-buttons">
         <button type="button" data-up="${i}" ${i === 0 ? "disabled" : ""}>↑</button>
@@ -212,9 +276,24 @@ function renderSteps() {
     `;
     list.appendChild(row);
 
-    row.querySelector(".step-command").addEventListener("input", (e) => {
+    const select = row.querySelector(".step-command");
+    select.innerHTML = optionsHtml;
+    const customInput = row.querySelector(".step-command-custom");
+
+    select.addEventListener("change", () => {
+      if (select.value === "__custom__") {
+        customInput.classList.remove("hidden");
+        customInput.value = editingSteps[i].command || "";
+        customInput.focus();
+      } else {
+        customInput.classList.add("hidden");
+        editingSteps[i].command = select.value;
+      }
+    });
+    customInput.addEventListener("input", (e) => {
       editingSteps[i].command = e.target.value;
     });
+
     row.querySelector(".step-argv").addEventListener("input", (e) => {
       editingSteps[i].argv = e.target.value.trim()
         ? e.target.value.trim().split(/\s+/)
@@ -251,7 +330,7 @@ function addStep() {
 
 // ---------- editor ----------
 
-function openEditor(actionId) {
+async function openEditor(actionId) {
   editingId = actionId || null;
   const action = actionId
     ? config.actions.find((a) => a.id === actionId)
@@ -313,8 +392,8 @@ function openEditor(actionId) {
   }
   slotSelect.value = currentSlot;
 
+  await refreshAllowedScripts();
   renderSteps();
-  toggleFolderPicker();
   document.getElementById("editor").classList.remove("hidden");
   window.scrollTo(0, document.body.scrollHeight);
 }
@@ -409,6 +488,12 @@ document.addEventListener("DOMContentLoaded", () => {
     .getElementById("add-action")
     .addEventListener("click", () => openEditor(null));
   document.getElementById("add-step").addEventListener("click", addStep);
+  document
+    .getElementById("refresh-scripts")
+    .addEventListener("click", async () => {
+      await refreshAllowedScripts();
+      renderSteps();
+    });
   document
     .getElementById("save-action")
     .addEventListener("click", onSaveAction);
