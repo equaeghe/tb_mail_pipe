@@ -1,7 +1,13 @@
 const SLOTS = [
-  "run-action-1", "run-action-2", "run-action-3",
-  "run-action-4", "run-action-5", "run-action-6",
-  "run-action-7", "run-action-8", "run-action-9"
+  "run-action-1",
+  "run-action-2",
+  "run-action-3",
+  "run-action-4",
+  "run-action-5",
+  "run-action-6",
+  "run-action-7",
+  "run-action-8",
+  "run-action-9",
 ];
 
 let config = { actions: [], slotBindings: {} };
@@ -37,7 +43,8 @@ async function populateAccounts() {
 
 function slotLabelFor(actionId) {
   for (const slot of SLOTS) {
-    if (config.slotBindings[slot] === actionId) return slot.replace("run-action-", "Slot ");
+    if (config.slotBindings[slot] === actionId)
+      return slot.replace("run-action-", "Slot ");
   }
   return "—";
 }
@@ -59,14 +66,16 @@ function render() {
   for (const action of config.actions) {
     const tr = document.createElement("tr");
 
-    const originalLabel = {
-      trash: "Move to Trash",
-      delete: "Delete permanently",
-      markRead: "Leave, mark read",
-      leave: "Leave untouched"
-    }[action.originalAction] || action.originalAction;
+    const originalLabel =
+      {
+        trash: "Move to Trash",
+        delete: "Delete permanently",
+        markRead: "Leave, mark read",
+        leave: "Leave untouched",
+      }[action.originalAction] || action.originalAction;
 
-    const destLabel = action.importTarget === "custom" ? "custom folder" : "same folder";
+    const destLabel =
+      action.importTarget === "custom" ? "custom folder" : "same folder";
 
     tr.innerHTML = `
       <td>${escapeHtml(action.name)}</td>
@@ -83,17 +92,29 @@ function render() {
   }
 
   tbody.querySelectorAll("button[data-edit]").forEach((btn) => {
-    btn.addEventListener("click", () => openEditor(btn.getAttribute("data-edit")));
+    btn.addEventListener("click", () =>
+      openEditor(btn.getAttribute("data-edit")),
+    );
   });
   tbody.querySelectorAll("button[data-delete]").forEach((btn) => {
-    btn.addEventListener("click", () => deleteAction(btn.getAttribute("data-delete")));
+    btn.addEventListener("click", () =>
+      deleteAction(btn.getAttribute("data-delete")),
+    );
   });
 }
 
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  }[c]));
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[c],
+  );
 }
 
 // ---------- step-list editing ----------
@@ -121,14 +142,18 @@ function renderSteps() {
       editingSteps[i].command = e.target.value;
     });
     row.querySelector(".step-argv").addEventListener("input", (e) => {
-      editingSteps[i].argv = e.target.value.trim() ? e.target.value.trim().split(/\s+/) : [];
+      editingSteps[i].argv = e.target.value.trim()
+        ? e.target.value.trim().split(/\s+/)
+        : [];
     });
 
     const upBtn = row.querySelector("[data-up]");
     if (upBtn) upBtn.addEventListener("click", () => moveStep(i, -1));
     const downBtn = row.querySelector("[data-down]");
     if (downBtn) downBtn.addEventListener("click", () => moveStep(i, 1));
-    row.querySelector("[data-remove]").addEventListener("click", () => removeStep(i));
+    row
+      .querySelector("[data-remove]")
+      .addEventListener("click", () => removeStep(i));
   });
 }
 
@@ -164,24 +189,29 @@ function openEditor(actionId) {
         importTarget: "same",
         customFolder: null,
         carryFlags: true,
-        originalAction: "trash"
+        originalAction: "trash",
       };
 
   editingSteps = (action.steps || [{ command: "", argv: [] }]).map((s) => ({
     command: s.command,
-    argv: [...(s.argv || [])]
+    argv: [...(s.argv || [])],
   }));
 
-  document.getElementById("editor-title").textContent = actionId ? "Edit action" : "New action";
+  document.getElementById("editor-title").textContent = actionId
+    ? "Edit action"
+    : "New action";
   document.getElementById("f-name").value = action.name;
   document.getElementById("f-timeout").value = action.timeoutMs || 30000;
-  document.getElementById("f-import-target").value = action.importTarget || "same";
+  document.getElementById("f-import-target").value =
+    action.importTarget || "same";
   document.getElementById("f-carry-flags").checked = !!action.carryFlags;
-  document.getElementById("f-original-action").value = action.originalAction || "trash";
+  document.getElementById("f-original-action").value =
+    action.originalAction || "trash";
 
   if (action.customFolder) {
     document.getElementById("f-account").value = action.customFolder.accountId;
-    document.getElementById("f-folder-path").value = action.customFolder.path || "";
+    document.getElementById("f-folder-path").value =
+      action.customFolder.path || "";
   } else {
     document.getElementById("f-folder-path").value = "";
   }
@@ -210,7 +240,8 @@ function openEditor(actionId) {
 
 function toggleFolderPicker() {
   const wrap = document.getElementById("folder-picker-wrap");
-  const isCustom = document.getElementById("f-import-target").value === "custom";
+  const isCustom =
+    document.getElementById("f-import-target").value === "custom";
   wrap.classList.toggle("hidden", !isCustom);
 }
 
@@ -224,7 +255,8 @@ async function deleteAction(actionId) {
   if (!confirm("Delete this action?")) return;
   config.actions = config.actions.filter((a) => a.id !== actionId);
   for (const slot of SLOTS) {
-    if (config.slotBindings[slot] === actionId) delete config.slotBindings[slot];
+    if (config.slotBindings[slot] === actionId)
+      delete config.slotBindings[slot];
   }
   await save();
   render();
@@ -262,11 +294,12 @@ async function onSaveAction() {
     id: editingId || uuid(),
     name,
     steps,
-    timeoutMs: parseInt(document.getElementById("f-timeout").value, 10) || 30000,
+    timeoutMs:
+      parseInt(document.getElementById("f-timeout").value, 10) || 30000,
     importTarget,
     customFolder,
     carryFlags: document.getElementById("f-carry-flags").checked,
-    originalAction: document.getElementById("f-original-action").value
+    originalAction: document.getElementById("f-original-action").value,
   };
 
   const idx = config.actions.findIndex((a) => a.id === action.id);
@@ -275,7 +308,8 @@ async function onSaveAction() {
 
   // Update slot binding: clear any previous slot for this action, then set the new one.
   for (const slot of SLOTS) {
-    if (config.slotBindings[slot] === action.id) delete config.slotBindings[slot];
+    if (config.slotBindings[slot] === action.id)
+      delete config.slotBindings[slot];
   }
   const chosenSlot = document.getElementById("f-slot").value;
   if (chosenSlot) config.slotBindings[chosenSlot] = action.id;
@@ -287,9 +321,15 @@ async function onSaveAction() {
 
 document.addEventListener("DOMContentLoaded", () => {
   load();
-  document.getElementById("add-action").addEventListener("click", () => openEditor(null));
+  document
+    .getElementById("add-action")
+    .addEventListener("click", () => openEditor(null));
   document.getElementById("add-step").addEventListener("click", addStep);
-  document.getElementById("save-action").addEventListener("click", onSaveAction);
+  document
+    .getElementById("save-action")
+    .addEventListener("click", onSaveAction);
   document.getElementById("cancel-edit").addEventListener("click", closeEditor);
-  document.getElementById("f-import-target").addEventListener("change", toggleFolderPicker);
+  document
+    .getElementById("f-import-target")
+    .addEventListener("change", toggleFolderPicker);
 });
