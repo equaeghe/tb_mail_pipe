@@ -41,6 +41,35 @@ async function populateAccounts() {
   }
 }
 
+// Populates the folder dropdown for the currently selected account.
+// MailFolderId is an opaque string in MV3 (no more {accountId, path}), so
+// we look up the account's real folder tree and store each folder's
+// actual `.id`, rather than trying to construct or guess one.
+async function populateFoldersForAccount(accountId, selectedFolderId) {
+  const select = document.getElementById("f-folder-id");
+  select.innerHTML = "";
+  if (!accountId) return;
+
+  const account = await messenger.accounts.get(accountId, true);
+  if (!account || !account.rootFolder) return;
+
+  const entries = [];
+  (function walk(folder, prefix) {
+    const label = prefix ? `${prefix}/${folder.name}` : folder.name;
+    entries.push({ id: folder.id, label });
+    for (const sub of folder.subFolders || []) walk(sub, label);
+  })(account.rootFolder, "");
+
+  for (const entry of entries) {
+    const opt = document.createElement("option");
+    opt.value = entry.id;
+    opt.textContent = entry.label;
+    select.appendChild(opt);
+  }
+
+  if (selectedFolderId) select.value = selectedFolderId;
+}
+
 function slotLabelFor(actionId) {
   for (const slot of SLOTS) {
     if (config.slotBindings[slot] === actionId)
@@ -187,7 +216,8 @@ function openEditor(actionId) {
         steps: [{ command: "", argv: [] }],
         timeoutMs: 30000,
         importTarget: "same",
-        customFolder: null,
+        customFolderId: null,
+        customFolderAccountId: null,
         carryFlags: true,
         originalAction: "trash",
       };
@@ -208,12 +238,18 @@ function openEditor(actionId) {
   document.getElementById("f-original-action").value =
     action.originalAction || "trash";
 
-  if (action.customFolder) {
-    document.getElementById("f-account").value = action.customFolder.accountId;
-    document.getElementById("f-folder-path").value =
-      action.customFolder.path || "";
+  if (action.customFolderId) {
+    // customFolderAccountId is stored purely so re-opening this action for
+    // editing can preselect the right account; the import call itself
+    // only ever uses customFolderId.
+    document.getElementById("f-account").value =
+      action.customFolderAccountId || "";
+    populateFoldersForAccount(
+      document.getElementById("f-account").value,
+      action.customFolderId,
+    );
   } else {
-    document.getElementById("f-folder-path").value = "";
+    populateFoldersForAccount(document.getElementById("f-account").value, null);
   }
 
   const slotSelect = document.getElementById("f-slot");
@@ -279,15 +315,17 @@ async function onSaveAction() {
   }
 
   const importTarget = document.getElementById("f-import-target").value;
-  let customFolder = null;
+  let customFolderId = null;
+  let customFolderAccountId = null;
   if (importTarget === "custom") {
     const accountId = document.getElementById("f-account").value;
-    const path = document.getElementById("f-folder-path").value.trim();
-    if (!accountId || !path) {
-      alert("Pick an account and folder path for a custom destination.");
+    const folderId = document.getElementById("f-folder-id").value;
+    if (!accountId || !folderId) {
+      alert("Pick an account and a folder for a custom destination.");
       return;
     }
-    customFolder = { accountId, path };
+    customFolderId = folderId;
+    customFolderAccountId = accountId;
   }
 
   const action = {
@@ -297,7 +335,8 @@ async function onSaveAction() {
     timeoutMs:
       parseInt(document.getElementById("f-timeout").value, 10) || 30000,
     importTarget,
-    customFolder,
+    customFolderId,
+    customFolderAccountId,
     carryFlags: document.getElementById("f-carry-flags").checked,
     originalAction: document.getElementById("f-original-action").value,
   };
@@ -332,4 +371,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("f-import-target")
     .addEventListener("change", toggleFolderPicker);
+  document.getElementById("f-account").addEventListener("change", (e) => {
+    populateFoldersForAccount(e.target.value, null);
+  });
 });

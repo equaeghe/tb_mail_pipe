@@ -16,6 +16,9 @@
  *       timeoutMs: 30000,                        // total budget for the whole chain
  *       importTarget: "same" | "custom",
  *       customFolderId: "<MailFolderId string>" | null,
+ *       customFolderAccountId: "<accountId>" | null, // UI-only, to preselect
+ *                                                     // the account when re-editing;
+ *                                                     // import() only uses customFolderId
  *       carryFlags: true,                       // copy read/flagged state onto the new message
  *       originalAction: "trash" | "delete" | "markRead" | "leave"
  *     }, ...
