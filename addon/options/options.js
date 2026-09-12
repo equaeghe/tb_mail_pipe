@@ -10,7 +10,12 @@ const SLOTS = [
   "run-action-9",
 ];
 
-let config = { actions: [], slotBindings: {} };
+let config = {
+  scratchFolderId: null,
+  scratchFolderAccountId: null,
+  actions: [],
+  slotBindings: {},
+};
 let editingId = null; // null = creating new
 let editingSteps = []; // [{command, argv: [string]}], edited in place while the editor is open
 
@@ -20,8 +25,25 @@ function uuid() {
 
 async function load() {
   const stored = await messenger.storage.local.get("config");
-  config = stored.config || { actions: [], slotBindings: {} };
-  await populateAccounts();
+  config = stored.config || {
+    scratchFolderId: null,
+    scratchFolderAccountId: null,
+    actions: [],
+    slotBindings: {},
+  };
+  await populateAccountsInto(document.getElementById("f-account"));
+  await populateAccountsInto(document.getElementById("scratch-account"));
+
+  if (config.scratchFolderAccountId) {
+    document.getElementById("scratch-account").value =
+      config.scratchFolderAccountId;
+  }
+  await populateFoldersInto(
+    document.getElementById("scratch-folder-id"),
+    document.getElementById("scratch-account").value,
+    config.scratchFolderId,
+  );
+
   render();
 }
 
@@ -29,8 +51,7 @@ async function save() {
   await messenger.storage.local.set({ config });
 }
 
-async function populateAccounts() {
-  const select = document.getElementById("f-account");
+async function populateAccountsInto(select) {
   select.innerHTML = "";
   const accounts = await messenger.accounts.list(false);
   for (const acc of accounts) {
@@ -41,12 +62,11 @@ async function populateAccounts() {
   }
 }
 
-// Populates the folder dropdown for the currently selected account.
-// MailFolderId is an opaque string in MV3 (no more {accountId, path}), so
-// we look up the account's real folder tree and store each folder's
-// actual `.id`, rather than trying to construct or guess one.
-async function populateFoldersForAccount(accountId, selectedFolderId) {
-  const select = document.getElementById("f-folder-id");
+// Populates a folder dropdown for the given account. MailFolderId is an
+// opaque string in MV3 (no more {accountId, path}), so we look up the
+// account's real folder tree and store each folder's actual `.id`, rather
+// than trying to construct or guess one.
+async function populateFoldersInto(select, accountId, selectedFolderId) {
   select.innerHTML = "";
   if (!accountId) return;
 
@@ -68,6 +88,31 @@ async function populateFoldersForAccount(accountId, selectedFolderId) {
   }
 
   if (selectedFolderId) select.value = selectedFolderId;
+}
+
+async function populateFoldersForAccount(accountId, selectedFolderId) {
+  await populateFoldersInto(
+    document.getElementById("f-folder-id"),
+    accountId,
+    selectedFolderId,
+  );
+}
+
+async function onScratchAccountChange() {
+  await populateFoldersInto(
+    document.getElementById("scratch-folder-id"),
+    document.getElementById("scratch-account").value,
+    null,
+  );
+  await onScratchFolderChange();
+}
+
+async function onScratchFolderChange() {
+  config.scratchFolderAccountId =
+    document.getElementById("scratch-account").value || null;
+  config.scratchFolderId =
+    document.getElementById("scratch-folder-id").value || null;
+  await save();
 }
 
 function slotLabelFor(actionId) {
@@ -374,4 +419,10 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("f-account").addEventListener("change", (e) => {
     populateFoldersForAccount(e.target.value, null);
   });
+  document
+    .getElementById("scratch-account")
+    .addEventListener("change", onScratchAccountChange);
+  document
+    .getElementById("scratch-folder-id")
+    .addEventListener("change", onScratchFolderChange);
 });

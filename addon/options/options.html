@@ -26,6 +26,37 @@
             here. See the project README for details.
         </p>
 
+        <section id="scratch-settings">
+            <h2>Scratch folder</h2>
+            <p class="hint">
+                Thunderbird refuses to import a message into a folder that
+                already contains a message with the same
+                <code>Message-ID</code>. Since this add-on's scripts
+                normally keep the original <code>Message-ID</code> intact,
+                every processed message is therefore first imported into
+                the dedicated scratch folder selected here, and only then
+                moved to its real destination (the same folder, or a
+                custom one, per action).
+            </p>
+            <p class="warning">
+                <strong>Create an empty folder yourself</strong> (e.g. a
+                local folder named something like "Mail Pipe Scratch") and
+                select it below. Use a folder that is
+                <strong>not</strong> also the source folder of any message
+                you run an action on, and not the import destination of any
+                action either — otherwise the same "already contains a
+                message with id ..." error can still occur. Don't otherwise
+                use this folder for anything; the add-on assumes it can
+                freely hold and move messages through it.
+            </p>
+            <label
+                >Account<br /><select id="scratch-account"></select
+            ></label>
+            <label
+                >Folder<br /><select id="scratch-folder-id"></select
+            ></label>
+        </section>
+
         <section>
             <h2>Actions</h2>
             <table id="actions-table">

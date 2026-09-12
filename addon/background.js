@@ -3,6 +3,13 @@
  *
  * Storage schema (storage.local), key "config":
  * {
+ *   scratchFolderId: "<MailFolderId string>" | null, // dedicated empty
+ *                                     // folder the user creates themselves;
+ *                                     // every processed message is imported
+ *                                     // here first, then moved to its real
+ *                                     // destination - see runActionOnOneMessage
+ *   scratchFolderAccountId: "<accountId>" | null, // UI-only, to preselect
+ *                                                  // the account when re-editing
  *   actions: [
  *     {
  *       id: "uuid",
@@ -40,7 +47,14 @@ const MENU_ROOT_ID = "tb_mail_pipe-root";
 
 async function getConfig() {
   const { config } = await messenger.storage.local.get("config");
-  return config || { actions: [], slotBindings: {} };
+  return (
+    config || {
+      scratchFolderId: null,
+      scratchFolderAccountId: null,
+      actions: [],
+      slotBindings: {},
+    }
+  );
 }
 
 async function setConfig(config) {
@@ -95,12 +109,12 @@ async function rebuildMenu() {
 messenger.menus.onClicked.addListener(async (info, tab) => {
   if (!info.menuItemId || !info.menuItemId.startsWith("mail-pipe-run:")) return;
   const actionId = info.menuItemId.slice("mail-pipe-run:".length);
-  const { actions } = await getConfig();
+  const { actions, scratchFolderId } = await getConfig();
   const action = actions.find((a) => a.id === actionId);
   if (!action) return;
 
   const messages = await resolveSelectedMessages(info, tab);
-  await runActionOnMessages(action, messages);
+  await runActionOnMessages(action, messages, scratchFolderId);
 });
 
 // Thunderbird's menus.onClicked info includes `selectedMessages` for the
@@ -119,7 +133,7 @@ async function resolveSelectedMessages(info, tab) {
 
 messenger.commands.onCommand.addListener(async (command) => {
   if (!command.startsWith("run-action-")) return;
-  const { actions, slotBindings } = await getConfig();
+  const { actions, slotBindings, scratchFolderId } = await getConfig();
   const actionId = slotBindings ? slotBindings[command] : undefined;
   if (!actionId) {
     await notify(
@@ -137,12 +151,12 @@ messenger.commands.onCommand.addListener(async (command) => {
     return;
   }
   const list = await messenger.mailTabs.getSelectedMessages();
-  await runActionOnMessages(action, list.messages);
+  await runActionOnMessages(action, list.messages, scratchFolderId);
 });
 
 // ---------- core pipeline ----------
 
-async function runActionOnMessages(action, messages) {
+async function runActionOnMessages(action, messages, scratchFolderId) {
   if (!messages || messages.length === 0) return;
 
   let successCount = 0;
@@ -150,7 +164,7 @@ async function runActionOnMessages(action, messages) {
 
   for (const message of messages) {
     try {
-      await runActionOnOneMessage(action, message);
+      await runActionOnOneMessage(action, message, scratchFolderId);
       successCount++;
     } catch (err) {
       console.error(
@@ -170,7 +184,15 @@ async function runActionOnMessages(action, messages) {
   }
 }
 
-async function runActionOnOneMessage(action, message) {
+async function runActionOnOneMessage(action, message, scratchFolderId) {
+  if (!scratchFolderId) {
+    throw new Error(
+      "No scratch folder is configured. Open the add-on's options, create " +
+        "an empty folder dedicated to this purpose, and select it under " +
+        '"Scratch folder" before running any action.',
+    );
+  }
+
   const rawFile = await messenger.messages.getRaw(message.id, {
     data_format: "File",
   });
@@ -223,10 +245,11 @@ async function runActionOnOneMessage(action, message) {
     type: "message/rfc822",
   });
 
+  const sourceFolder = resolveFolderId(message);
   const destFolder =
     action.importTarget === "custom" && action.customFolderId
       ? action.customFolderId
-      : resolveFolderId(message);
+      : sourceFolder;
 
   const properties = {};
   if (action.carryFlags) {
@@ -234,8 +257,41 @@ async function runActionOnOneMessage(action, message) {
     properties.flagged = message.flagged;
   }
 
-  await messenger.messages.import(newFile, destFolder, properties);
+  // messenger.messages.import() throws "Destination folder already
+  // contains a message with id <Message-ID>" if destFolder already holds a
+  // message with the same Message-ID header as the one we're importing.
+  // Since the script's output normally keeps the original Message-ID
+  // intact (as it should - this add-on never rewrites Message-IDs), this
+  // can happen whenever destFolder already has *any* message sharing that
+  // ID - not just the original message currently being processed, but also
+  // e.g. a leftover copy from a previous run. There's no way to reliably
+  // rule that out for an arbitrary destFolder, so we never import directly
+  // into it. Instead we always import into a dedicated, presumed-empty
+  // scratch folder that the user set up for exactly this purpose, and then
+  // move the freshly imported message into the real destination - move()
+  // is not subject to the same duplicate-Message-ID check.
+  if (scratchFolderId === sourceFolder) {
+    throw new Error(
+      "The configured scratch folder is the same folder this message is " +
+        "in. Point the scratch folder setting at a separate, empty " +
+        "folder that isn't used as a source or destination by any action.",
+    );
+  }
 
+  const imported = await messenger.messages.import(
+    newFile,
+    scratchFolderId,
+    properties,
+  );
+
+  if (destFolder !== scratchFolderId) {
+    await messenger.messages.move([imported.id], destFolder);
+  }
+
+  await performOriginalAction(action, message);
+}
+
+async function performOriginalAction(action, message) {
   switch (action.originalAction) {
     case "trash":
       await messenger.messages.delete([message.id], false);
