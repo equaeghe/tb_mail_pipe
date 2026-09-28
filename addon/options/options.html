@@ -8,13 +8,13 @@
     <body>
         <h1>Thunderbird Mail Pipe</h1>
         <p class="hint">
-            Define one or more "actions". Each action pipes the selected
+            Define one or more ‘actions’. Each action pipes the selected
             message(s) through an external script (via the native messaging host
             <code>tb_mail_pipe</code>) and imports the script's stdout as a new
             message. Every action automatically appears in the message-list
             context menu; you can additionally bind it to a keyboard shortcut
             slot below and assign an actual key combination in Thunderbird's
-            Add-on Manager → gear icon → "Manage Extension Shortcuts".
+            Add-on Manager → gear icon → “Manage Extension Shortcuts”.
         </p>
 
         <p class="warning">
@@ -31,30 +31,30 @@
             <p class="hint">
                 Thunderbird refuses to import a message into a folder that
                 already contains a message with the same
-                <code>Message-ID</code>. Since this add-on's scripts
-                normally keep the original <code>Message-ID</code> intact,
-                every processed message is therefore first imported into
-                the dedicated scratch folder selected here, and only then
-                moved to its real destination (the same folder, or a
-                custom one, per action).
+                <code>Message-ID</code>. Since this add-on's scripts normally
+                keep the original <code>Message-ID</code> intact, every
+                processed message is therefore first imported into the dedicated
+                scratch folder selected here, and only then moved to its real
+                destination (the same folder, or a custom one, per action).
             </p>
             <p class="warning">
-                <strong>Create an empty folder yourself</strong> (e.g. a
-                local folder named something like "Mail Pipe Scratch") and
-                select it below. Use a folder that is
-                <strong>not</strong> also the source folder of any message
-                you run an action on, and not the import destination of any
-                action either — otherwise the same "already contains a
-                message with id ..." error can still occur. Don't otherwise
-                use this folder for anything; the add-on assumes it can
-                freely hold and move messages through it.
+                <strong>Create an empty folder yourself</strong> and select it
+                below. Use a folder that is <strong>not</strong> also the source
+                folder of any message you run an action on, and not the import
+                destination of any action either — otherwise the same “already
+                contains a message with id ...” error can still occur. Don't
+                otherwise use this folder for anything; the add-on assumes it
+                can freely hold and move messages through it.
             </p>
-            <label
-                >Account<br /><select id="scratch-account"></select
-            ></label>
-            <label
-                >Folder<br /><select id="scratch-folder-id"></select
-            ></label>
+            <p class="hint">
+                Only local folders can be selected here: a message moved from a
+                local folder to an IMAP folder gets its
+                <code>Date</code> header as IMAP internal date, whereas
+                importing straight into an IMAP folder would give it the import
+                time.
+            </p>
+            <label>Account<br /><select id="scratch-account"></select></label>
+            <label>Folder<br /><select id="scratch-folder-id"></select></label>
         </section>
 
         <section>
@@ -88,8 +88,8 @@
                 <span class="steps-label"
                     >Pipe chain (each step's output feeds the next step's
                     input). Scripts are sourced from the native host's
-                    allow-list; pick "Custom path…" for one that isn't
-                    listed there (yet).</span
+                    allow-list; pick “Custom path…” for one that isn't listed
+                    there (yet).</span
                 >
                 <div id="steps-list"></div>
                 <div class="steps-toolbar">
@@ -124,9 +124,9 @@
             </div>
 
             <label
-                ><input id="f-carry-flags" type="checkbox" checked /> Carry
-                over read/flagged state, tags (labels) and junk status to
-                the new message</label
+                ><input id="f-carry-flags" type="checkbox" checked /> Carry over
+                read/flagged state, tags (labels) and junk status to the new
+                message</label
             >
 
             <label

@@ -62,7 +62,9 @@ async function load() {
     slotBindings: {},
   };
   await populateAccountsInto(document.getElementById("f-account"));
-  await populateAccountsInto(document.getElementById("scratch-account"));
+  await populateAccountsInto(document.getElementById("scratch-account"), {
+    localOnly: true,
+  });
 
   if (config.scratchFolderAccountId) {
     document.getElementById("scratch-account").value =
@@ -72,6 +74,7 @@ async function load() {
     document.getElementById("scratch-folder-id"),
     document.getElementById("scratch-account").value,
     config.scratchFolderId,
+    { placeholder: "Select a folder…" },
   );
 
   render();
@@ -81,9 +84,16 @@ async function save() {
   await messenger.storage.local.set({ config });
 }
 
-async function populateAccountsInto(select) {
+// With localOnly, only local accounts are listed ("local" in MV3, "none" in
+// MV2). Used for the scratch folder: messages moved from a local folder to
+// an IMAP folder get their Date: header as IMAP internal date, whereas
+// importing straight into an IMAP folder yields the import time.
+async function populateAccountsInto(select, { localOnly = false } = {}) {
   select.innerHTML = "";
-  const accounts = await messenger.accounts.list(false);
+  let accounts = await messenger.accounts.list(false);
+  if (localOnly) {
+    accounts = accounts.filter((a) => a.type === "local" || a.type === "none");
+  }
   for (const acc of accounts) {
     const opt = document.createElement("option");
     opt.value = acc.id;
@@ -96,19 +106,35 @@ async function populateAccountsInto(select) {
 // opaque string in MV3 (no more {accountId, path}), so we look up the
 // account's real folder tree and store each folder's actual `.id`, rather
 // than trying to construct or guess one.
-async function populateFoldersInto(select, accountId, selectedFolderId) {
+// With a placeholder, a first empty option is added so that no real folder
+// is selected (and, for the scratch folder, saved) until the user picks one.
+async function populateFoldersInto(
+  select,
+  accountId,
+  selectedFolderId,
+  { placeholder = null } = {},
+) {
   select.innerHTML = "";
+  if (placeholder) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = placeholder;
+    select.appendChild(opt);
+  }
   if (!accountId) return;
 
   const account = await messenger.accounts.get(accountId, true);
   if (!account || !account.rootFolder) return;
 
+  // The account's rootFolder is only an anchor, not a real folder: start
+  // from its children so it is neither selectable nor a label prefix.
   const entries = [];
-  (function walk(folder, prefix) {
+  function walk(folder, prefix) {
     const label = prefix ? `${prefix}/${folder.name}` : folder.name;
     entries.push({ id: folder.id, label });
     for (const sub of folder.subFolders || []) walk(sub, label);
-  })(account.rootFolder, "");
+  }
+  for (const top of account.rootFolder.subFolders || []) walk(top, "");
 
   for (const entry of entries) {
     const opt = document.createElement("option");
@@ -133,6 +159,7 @@ async function onScratchAccountChange() {
     document.getElementById("scratch-folder-id"),
     document.getElementById("scratch-account").value,
     null,
+    { placeholder: "Select a folder…" },
   );
   await onScratchFolderChange();
 }
